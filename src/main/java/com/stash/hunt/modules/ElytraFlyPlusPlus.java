@@ -555,8 +555,8 @@ public class ElytraFlyPlusPlus extends Module {
         ItemStack hotbarSwapItem = mc.player.getInventory().getStack(slot);
 
         Int2ObjectMap<ItemStackHash> changedSlots = new Int2ObjectOpenHashMap<>();
-        changedSlots.put(6, ItemStackHash.fromItemStack(hotbarSwapItem, mc.getNetworkHandler().method_68823()));
-        changedSlots.put(slot + 36, ItemStackHash.fromItemStack(chestItem, mc.getNetworkHandler().method_68823()));
+        changedSlots.put(6, ItemStackHash.fromItemStack(hotbarSwapItem, mc.getNetworkHandler().getComponentHasher()));
+        changedSlots.put(slot + 36, ItemStackHash.fromItemStack(chestItem, mc.getNetworkHandler().getComponentHasher()));
 
         sendSwapPacket(changedSlots, (byte)slot);
     }
