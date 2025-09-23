@@ -12,6 +12,8 @@ import meteordevelopment.meteorclient.systems.modules.Module;
 import meteordevelopment.meteorclient.utils.player.FindItemResult;
 import meteordevelopment.meteorclient.utils.player.InvUtils;
 import meteordevelopment.orbit.EventHandler;
+import net.minecraft.entity.EquipmentSlot;
+import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 
 public class AFKVanillaFly extends Module {
@@ -25,6 +27,24 @@ public class AFKVanillaFly extends Module {
     }
 
     private final SettingGroup sgGeneral = settings.getDefaultGroup();
+
+    // DuraSwap settings
+    private final Setting<Boolean> duraSwap = sgGeneral.add(new BoolSetting.Builder()
+        .name("DuraSwap")
+        .description("Automatically swap out low-durability elytra for a healthier one in your inventory.")
+        .defaultValue(false)
+        .build()
+    );
+
+    private final Setting<Integer> replaceThreshold = sgGeneral.add(new IntSetting.Builder()
+        .name("DuraSwap Threshold (%)")
+        .description("Swap when equipped elytra durability is at or below this percent. Replacement must be above this percent.")
+        .sliderRange(1, 99)
+        .defaultValue(5)
+        .visible(duraSwap::get)
+        .build()
+    );
+
 
     private final Setting<Integer> fireworkDelay = sgGeneral.add(new IntSetting.Builder()
         .name("Timed Delay (ms)")
@@ -123,6 +143,8 @@ public class AFKVanillaFly extends Module {
 
     @EventHandler
     private void onTick(TickEvent.Pre event) {
+        // Handle Elytra DuraSwap first so we don't fly on a broken elytra
+        handleDuraSwap();
         tickFlyLogic();
     }
 
@@ -153,4 +175,41 @@ public class AFKVanillaFly extends Module {
         }
         return -1;
     }
+
+    // --- DuraSwap logic (ported from RocketMan) ---
+    private void handleDuraSwap() {
+        if (mc == null || mc.player == null) return;
+        if (!duraSwap.get()) return;
+
+        ItemStack chest = mc.player.getEquippedStack(EquipmentSlot.CHEST);
+        if (!chest.isOf(Items.ELYTRA)) return;
+
+        int maxDurability = chest.getMaxDamage();
+        int currentDurability = maxDurability - chest.getDamage();
+        double percentDurability = Math.floor((currentDurability / (double) maxDurability) * 100);
+
+        if (percentDurability <= replaceThreshold.get()) {
+            replaceElytra();
+        }
+    }
+
+    private boolean replaceElytra() {
+        if (mc.player == null) return false;
+
+        // Search main inventory for an elytra above the threshold and equip it
+        for (int slot = 0; slot < 36; slot++) { // iterate main inventory slots (0-35)
+            ItemStack stack = mc.player.getInventory().getStack(slot);
+            if (stack.getItem() == Items.ELYTRA) {
+                int max = stack.getMaxDamage();
+                int current = max - stack.getDamage();
+                double percent = Math.floor((current / (double) max) * 100);
+
+                if (percent <= replaceThreshold.get()) continue;
+                InvUtils.move().from(slot).toArmor(2); // 2 = chest slot
+                return true;
+            }
+        }
+        return false;
+    }
+
 }
